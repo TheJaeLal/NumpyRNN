@@ -45,7 +45,7 @@ class Network:
 			#prediction = np.argmax(ot,axis=1)
 			output.append(ot)
 
-		return output
+		return output,sequence
 
 def softmax(yt):
 	exp_yt = np.exp(yt)
@@ -76,6 +76,19 @@ def load_data(filename):
 
 	return lines,list(char_set)
 
+def calc_loss(output,target):
+
+	# print(max(target))
+	# print(len(output))
+	#Output is a list of numpy arrays--> output after softmax
+	#target is a list of integers --> integer equivalent of the character from the vocabulary
+	loss = 0
+	for i in range(len(output)):
+		#print("i = ",i)
+		#ot is a (nc,1) numpy array!!
+		loss+= -np.log(output[i][target[i]][0])
+
+	return loss/float(len(output))
 
 def main():
 	filename = "Immortals_of_Meluha.txt"
@@ -85,6 +98,8 @@ def main():
 
 	vocabulary = ['<start>'] + vocabulary + ['<end>']
 
+	print("Size of vocabulary = ",len(vocabulary))
+	
 	#print("vocabulary =",vocabulary)
 	#for no,line in enumerate(data):
 		#print("{0}:{1}".format(no,line))
@@ -94,7 +109,15 @@ def main():
 
 	line = data[0]
 	for line in data:
-		output = my_rnn.forward_pass(line,vocabulary)
+
+		output,sequence = my_rnn.forward_pass(line,vocabulary)
+
+		#append the <end> token in target!
+		sequence.append(len(vocabulary)-1)
+
+		loss = calc_loss(output,sequence[1:])
+		print("Loss = {}".format(loss))
+		
 		# print("Predictions Start here")
 		# for char in output:
 		# 	prediction = predict(char)
