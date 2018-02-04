@@ -1,1 +1,1 @@
-hello world
+Hello, this is a Recurrent Neural Network, trained by Jay Ashok Lal!!

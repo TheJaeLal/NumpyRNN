@@ -1,5 +1,8 @@
 import numpy as np
 
+alpha = 0.0001
+epochs = 1000
+
 def load_data(filename):
 
 	with open(filename,'r') as f:
@@ -92,52 +95,87 @@ class Network:
 			#print("ot =",ot)
 			#prediction = np.argmax(ot,axis=1)
 			outputs.append(ot)
+
 			hidden_states.append(self.state)
 
 		return hidden_states,outputs,sequence
 
-	def backprop(self,x,h,p,target):
+	def backprop(self,h,p,target):
+		#x is a list of one-hot vectors
+		#p is a list of predictions after softmax
+		#target is a list of integers
 
 		#All derivatives of Cost i.e dWx represents--> dC/dWx 
 		dWx = np.zeros(self.Wx.shape)
 		dWh = np.zeros(self.Wh.shape)
 		dWy = np.zeros(self.Wy.shape)
 
-		dh = np.zeros(self.state[0])
+		danext = np.zeros(h[0].shape)
 
-		#danext = (1 - self.state[t]**2)*dh
+		#print("len of target =",len(target))
+		for t in range(len(target)):
 
-		danext = np.zeros(self.state[0].shape)
-
-		for t in range(len(sequence)):
-
-			dy = np.copy(p)
+			dy = np.copy(p[t])
 
 			dy[target[t]] -= 1
 
-			dh = np.dot(self.Wy.T,dy) + np.dot(Wh.T,danext)
+			dh = np.dot(self.Wy.T,dy) + np.dot(self.Wh.T,danext)
 
-			da = (1 - (self.state[t])**2)*dh
+			da = (1 - (h[t])**2)*dh
 
 			danext = da
 
-			dWy += np.dot(dy,self.state[t].T)
+			dWy += np.dot(dy,h[t].T)
 
-			dWx += np.dot(da,x[t].T)
+			one_hot_x = np.zeros((1,self.nc))
+			one_hot_x[0][target[t]] = 1
 
-			dWh += np.dot(da, self.state[t-1].T)
+			dWx += np.dot(da,one_hot_x)
+
+			dWh += np.dot(da, h[t-1].T)
 
 		return dWx, dWh, dWy
 
+	def generate(self,vocabulary):
+
+		outputs = []	
+
+		prediction = 0
+		self.state = np.zeros((self.nh,1))
+
+		i = 0
+		#Starting input character
+		while prediction!=(len(vocabulary)-1) and i!=25:
+			i+=1
+
+			#Update the hidden state
+
+			self.state = np.tanh(self.Wx[:,prediction].reshape(self.nh,1) + np.dot(self.Wh,self.state))
+
+			#Calculate Output
+			yt = np.dot(self.Wy,self.state)
+			
+			#print("shape of (state,yt) =({0},{1})".format(self.state.shape,yt.shape))			
+			#Squash to provide a probability distribution between 0 and 1
+			ot = softmax(yt)
+
+			prediction = predict(ot)
+			#print(prediction)
+			outputs.append(vocabulary[prediction])
+
+		return outputs
+
 def main():
-	filename = "Immortals_of_Meluha.txt"
-	#filename = "hello.txt"
+	global alpha,epochs
+
+	#filename = "Immortals_of_Meluha.txt"
+	filename = "hello.txt"
 
 	data,vocabulary = load_data(filename)
 
 	vocabulary = ['<start>'] + vocabulary + ['<end>']
 
-	print("Size of vocabulary = ",len(vocabulary))
+	print("Vocabulary = ",vocabulary)
 	
 	#print("vocabulary =",vocabulary)
 	#for no,line in enumerate(data):
@@ -147,22 +185,40 @@ def main():
 	my_rnn = Network(nh=100,nc=len(vocabulary))
 
 	line = data[0]
-	for line in data:
+	for e in range(epochs):
+		for line in data:
 
-		hidden_states,output,sequence = my_rnn.forward_pass(line,vocabulary)
+			hidden_states,output,sequence = my_rnn.forward_pass(line,vocabulary)
 
-		#append the <end> token in target!
-		sequence.append(len(vocabulary)-1)
+			#append the <end> token in target!
+			sequence.append(len(vocabulary)-1)
 
-		loss = calc_cost(output,sequence[1:])
-		print("Cost = {}".format(loss))
-		
+			#print("Calculating loss:",sequence)
+
+			loss = calc_cost(output,sequence[1:])
+			print("Loss = {:2}".format(float(loss)))
+
+			dWx,dWh,dWy = my_rnn.backprop(hidden_states,output,sequence[1:])
+			
+			my_rnn.Wx -= alpha * dWx
+			my_rnn.Wh -= alpha * dWh
+			my_rnn.Wy -= alpha * dWy
+
+			text = my_rnn.generate(vocabulary)
+			if "<end>" in text:
+				text.remove("<end>")
+			if "<start>" in text:
+				text.remove("<start>")	
+
+		print("".join(text))
+
 		# print("Predictions Start here")
 		# for char in output:
 		# 	prediction = predict(char)
 		# 	#print("Prediction =",pred)
 		# 	#print(vocabulary[prediction],end="")
 		# print("")
+
 
 if __name__ == '__main__':
 	main()
