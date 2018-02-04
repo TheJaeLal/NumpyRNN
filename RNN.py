@@ -1,7 +1,7 @@
 import numpy as np
 
-alpha = 0.0001
-epochs = 1000
+alpha = 0.001
+epochs = 10000
 
 def load_data(filename):
 
@@ -61,6 +61,12 @@ class Network:
 		#Output Weights
 		self.Wy = np.random.randn(nc,nh) * np.sqrt(1/nh)
 
+		#Hidden bias
+		self.bh = np.zeros((nh,1))
+
+		#Output bias
+		self.by = np.zeros((nc,1))
+
 		#Initial Hidden state
 		self.state = np.zeros((nh,1))
 
@@ -83,10 +89,10 @@ class Network:
 			
 			#Update the hidden state
 
-			self.state = np.tanh(self.Wx[:,t].reshape(self.nh,1) + np.dot(self.Wh,self.state))
+			self.state = np.tanh(self.Wx[:,t].reshape(self.nh,1) + np.dot(self.Wh,self.state) + self.bh)
 
 			#Calculate Output
-			yt = np.dot(self.Wy,self.state)
+			yt = np.dot(self.Wy,self.state) + self.by
 			
 			#print("shape of (state,yt) =({0},{1})".format(self.state.shape,yt.shape))			
 			#Squash to provide a probability distribution between 0 and 1
@@ -109,6 +115,8 @@ class Network:
 		dWx = np.zeros(self.Wx.shape)
 		dWh = np.zeros(self.Wh.shape)
 		dWy = np.zeros(self.Wy.shape)
+		dbh = np.zeros(self.bh.shape)
+		dby = np.zeros(self.by.shape)
 
 		danext = np.zeros(h[0].shape)
 
@@ -125,6 +133,10 @@ class Network:
 
 			danext = da
 
+			dbh += da
+			
+			dby += dy
+
 			dWy += np.dot(dy,h[t].T)
 
 			one_hot_x = np.zeros((1,self.nc))
@@ -134,7 +146,7 @@ class Network:
 
 			dWh += np.dot(da, h[t-1].T)
 
-		return dWx, dWh, dWy
+		return dWx, dWh, dWy, dbh, dby
 
 	def generate(self,vocabulary):
 
@@ -150,10 +162,10 @@ class Network:
 
 			#Update the hidden state
 
-			self.state = np.tanh(self.Wx[:,prediction].reshape(self.nh,1) + np.dot(self.Wh,self.state))
+			self.state = np.tanh(self.Wx[:,prediction].reshape(self.nh,1) + np.dot(self.Wh,self.state) + self.bh)
 
 			#Calculate Output
-			yt = np.dot(self.Wy,self.state)
+			yt = np.dot(self.Wy,self.state) + self.by
 			
 			#print("shape of (state,yt) =({0},{1})".format(self.state.shape,yt.shape))			
 			#Squash to provide a probability distribution between 0 and 1
@@ -198,11 +210,13 @@ def main():
 			loss = calc_cost(output,sequence[1:])
 			print("Loss = {:2}".format(float(loss)))
 
-			dWx,dWh,dWy = my_rnn.backprop(hidden_states,output,sequence[1:])
+			dWx,dWh,dWy,dbh,dby = my_rnn.backprop(hidden_states,output,sequence[1:])
 			
 			my_rnn.Wx -= alpha * dWx
 			my_rnn.Wh -= alpha * dWh
 			my_rnn.Wy -= alpha * dWy
+			my_rnn.bh -= alpha * dbh
+			my_rnn.by -= alpha * dby
 
 			text = my_rnn.generate(vocabulary)
 			if "<end>" in text:
