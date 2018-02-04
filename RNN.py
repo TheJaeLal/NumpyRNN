@@ -1,7 +1,7 @@
 import numpy as np
 
-alpha = 0.001
-epochs = 10000
+alpha = 0.002
+epochs = 120
 
 def load_data(filename):
 
@@ -53,22 +53,22 @@ class Network:
 		self.nc = nc
 		self.nh = nh
 		#Weights for input layer
-		self.Wx = np.random.randn(nh,nc) * np.sqrt(1/nc)
+		self.Wx = np.random.randn(nh,nc) * np.sqrt(2/nc).astype(np.float32)
 		
 		#Weights for hidden layer(Recursive weights, from one hidden state to another)
-		self.Wh = np.random.randn(nh,nh) * np.sqrt(1/nh)
+		self.Wh = np.random.randn(nh,nh) * np.sqrt(2/nh).astype(np.float32)
 
 		#Output Weights
-		self.Wy = np.random.randn(nc,nh) * np.sqrt(1/nh)
+		self.Wy = np.random.randn(nc,nh) * np.sqrt(2/nh).astype(np.float32)
 
 		#Hidden bias
-		self.bh = np.zeros((nh,1))
+		self.bh = np.zeros((nh,1)).astype(np.float32)
 
 		#Output bias
-		self.by = np.zeros((nc,1))
+		self.by = np.zeros((nc,1)).astype(np.float32)
 
 		#Initial Hidden state
-		self.state = np.zeros((nh,1))
+		self.state = np.zeros((nh,1)).astype(np.float32)
 
 	def forward_pass(self,X,vocabulary):
 
@@ -146,7 +146,12 @@ class Network:
 
 			dWh += np.dot(da, h[t-1].T)
 
-		return dWx, dWh, dWy, dbh, dby
+		gradients = [dWx, dWh, dWy, dbh, dby]
+
+		#Add gradient clipping to prevent gradient exploding problem!!
+		for gradient in gradients:
+			np.clip(gradient,-5,5,out=gradient)
+		return gradients
 
 	def generate(self,vocabulary):
 
@@ -157,7 +162,7 @@ class Network:
 
 		i = 0
 		#Starting input character
-		while prediction!=(len(vocabulary)-1) and i!=25:
+		while prediction!=(len(vocabulary)-1) and i!=45:
 			i+=1
 
 			#Update the hidden state
@@ -194,7 +199,7 @@ def main():
 		#print("{0}:{1}".format(no,line))
 
 	#data is a list of lines, each line is a string, i.e a list of characters
-	my_rnn = Network(nh=100,nc=len(vocabulary))
+	my_rnn = Network(nh=200,nc=len(vocabulary))
 
 	line = data[0]
 	for e in range(epochs):
@@ -207,10 +212,10 @@ def main():
 
 			#print("Calculating loss:",sequence)
 
-			loss = calc_cost(output,sequence[1:])
-			print("Loss = {:2}".format(float(loss)))
+			#loss = calc_cost(output,sequence[1:])
+			#print("Loss = {:2}".format(float(loss)))
 
-			dWx,dWh,dWy,dbh,dby = my_rnn.backprop(hidden_states,output,sequence[1:])
+			[dWx,dWh,dWy,dbh,dby] = my_rnn.backprop(hidden_states,output,sequence[1:])
 			
 			my_rnn.Wx -= alpha * dWx
 			my_rnn.Wh -= alpha * dWh
