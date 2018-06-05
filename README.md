@@ -1,2 +1,5 @@
-# RNN
-A Vanilla RNN trained using Character level Language Model
+# Char-RNN
+A character level language model, using RNN.
+
+# Dependancies:
+Numpy
